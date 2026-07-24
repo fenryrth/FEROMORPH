@@ -1,0 +1,82 @@
+name: Build FEROMORPH Native for Linux
+
+on:
+  pull_request:
+    paths:
+      - "native/**"
+      - ".github/workflows/native-linux-build.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          show-progress: false
+
+      - name: Download Godot 4.7.1 and export templates
+        run: |
+          curl --fail --location --retry 3 --silent --show-error \
+            --output godot.zip \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          curl --fail --location --retry 3 --silent --show-error \
+            --output templates.tpz \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz
+          unzip -q godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Install export templates
+        run: |
+          rm -rf templates
+          unzip -q templates.tpz
+          mkdir -p "$HOME/.local/share/godot/export_templates/4.7.1.stable"
+          cp -R templates/. "$HOME/.local/share/godot/export_templates/4.7.1.stable/"
+
+      - name: Import project
+        run: |
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --import
+
+      - name: Export standalone Linux application
+        run: |
+          mkdir -p native/build
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --export-release "Linux x86_64" \
+            build/FEROMORPH
+          chmod +x native/build/FEROMORPH
+          file native/build/FEROMORPH
+
+      - name: Assemble test package
+        run: |
+          mkdir -p package
+          cp native/build/FEROMORPH package/FEROMORPH
+          cp native/README.md package/README.md
+          cp native/CHANGELOG.md package/CHANGELOG.md
+          cat > package/START-HERE.txt <<'EOF'
+          FEROMORPH Native — Linux x86_64
+
+          1. Open a terminal in this folder.
+          2. Run: chmod +x FEROMORPH
+          3. Run: ./FEROMORPH
+
+          Press 1 for Safe quality if the computer feels slow.
+          Press F for fullscreen and Esc to leave fullscreen.
+          EOF
+          chmod +x package/FEROMORPH
+
+      - name: Upload Linux application
+        uses: actions/upload-artifact@v4
+        with:
+          name: FEROMORPH-native-linux-x86_64
+          path: package/
+          if-no-files-found: error
+          retention-days: 14

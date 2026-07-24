@@ -1,0 +1,88 @@
+name: Validate FEROMORPH Native
+
+on:
+  pull_request:
+    paths:
+      - "native/**"
+      - ".github/workflows/native-godot-check.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "native/**"
+      - ".github/workflows/native-godot-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          show-progress: false
+
+      - name: Download Godot 4.7.1
+        run: |
+          curl --fail --location --retry 3 --silent --show-error \
+            --output godot.zip \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Import project resources
+        run: |
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --import \
+            > godot-import.log 2>&1
+
+      - name: Parse main script
+        run: |
+          set +e
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --script res://scripts/main.gd \
+            --check-only \
+            > godot-check.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Godot diagnostics:"
+            grep -E "SCRIPT ERROR|Parse Error|ERROR:|res://|main.gd" godot-check.log || tail -n 80 godot-check.log
+            exit "$status"
+          fi
+
+      - name: Run headless smoke test
+        run: |
+          set +e
+          timeout 20s ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --quit-after 12 \
+            > godot-runtime.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Godot runtime diagnostics:"
+            cat godot-runtime.log
+            exit "$status"
+          fi
+          if grep -E "SCRIPT ERROR|Parse Error|ERROR:" godot-runtime.log; then
+            echo "Godot reported a runtime error."
+            exit 1
+          fi
+
+      - name: Upload Godot diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-diagnostics
+          path: |
+            godot-check.log
+            godot-import.log
+            godot-runtime.log
+          if-no-files-found: ignore
+          retention-days: 3
