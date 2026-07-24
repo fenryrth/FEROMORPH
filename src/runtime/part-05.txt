@@ -1,0 +1,120 @@
+      if (raw > 0 && raw < 1) stateLabel.textContent = "METAMORPHOSIS";
+
+      if (raw >= 1) {
+        seedA = seedB;
+        seedB = randomSeed();
+        morph = 0;
+        morphStart = cameraTime + randomRange(58, 108);
+        morphDuration = randomRange(18, 32);
+        currentPalette = palettes[Math.floor(Math.random() * palettes.length)];
+        seedLabel.textContent = `SEED ${formatSeed(seedA)}`;
+        stateLabel.textContent = "AFTERFORM";
+      }
+    }
+
+    if (!ruptureActive && cameraTime >= ruptureStart) {
+      triggerRupture();
+    }
+
+    if (ruptureActive) {
+      const eventTime = (cameraTime - ruptureStart) / ruptureDuration;
+      if (eventTime <= 1) {
+        rupture = Math.sin(eventTime * Math.PI);
+      } else {
+        rupture = 0;
+        ruptureActive = false;
+        ruptureStart = cameraTime + randomRange(22, 52);
+        stateLabel.textContent = "CONSOLIDATION";
+      }
+    }
+
+    const autonomousStillness =
+      smoothstep(0.74, 0.93, Math.sin(cameraTime * 0.031 + seedA * 0.01) * 0.5 + 0.5) *
+      (1 - rupture);
+    stillnessTarget = manualStillness ? 1 : autonomousStillness * 0.72;
+    stillness += (stillnessTarget - stillness) * 0.018;
+  }
+
+  function updateAdaptiveResolution(delta, fps) {
+    fpsAccumulator += delta;
+    fpsFrames += 1;
+
+    if (fpsAccumulator > 2.5) {
+      fpsDisplay = Math.round(fpsFrames / fpsAccumulator);
+      fpsLabel.textContent = `${fpsDisplay} FPS`;
+
+      const maxScale = Math.min(window.devicePixelRatio || 1, 1.5);
+      if (fpsDisplay < 27 && adaptiveScale > 0.72) {
+        adaptiveScale = Math.max(0.72, adaptiveScale - 0.1);
+        resize();
+      } else if (fpsDisplay > 49 && adaptiveScale < maxScale) {
+        adaptiveScale = Math.min(maxScale, adaptiveScale + 0.05);
+        resize();
+      }
+
+      fpsAccumulator = 0;
+      fpsFrames = 0;
+    }
+  }
+
+  function render(nowMs) {
+    const now = nowMs * 0.001;
+    const delta = Math.min(0.05, Math.max(0, (nowMs - lastFrame) * 0.001));
+    lastFrame = nowMs;
+
+    if (running) {
+      cameraTime += delta;
+      const motionSpeed = 1 - stillness * 0.91;
+      sculptureTime += delta * motionSpeed;
+      updateEvents();
+    }
+
+    pointer.x += (pointer.targetX - pointer.x) * 0.035;
+    pointer.y += (pointer.targetY - pointer.y) * 0.035;
+
+    gl.useProgram(program);
+    gl.bindVertexArray(vao);
+    gl.uniform2f(uniforms.resolution, canvas.width, canvas.height);
+    gl.uniform1f(uniforms.time, sculptureTime);
+    gl.uniform1f(uniforms.cameraTime, cameraTime);
+    gl.uniform1f(uniforms.seedA, seedA);
+    gl.uniform1f(uniforms.seedB, seedB);
+    gl.uniform1f(uniforms.morph, morph);
+    gl.uniform1f(uniforms.rupture, rupture);
+    gl.uniform1f(uniforms.stillness, stillness);
+    gl.uniform1f(uniforms.exposure, currentPalette.exposure);
+    gl.uniform2f(uniforms.pointer, pointer.x, pointer.y);
+    gl.uniform3fv(uniforms.baseColor, currentPalette.base);
+    gl.uniform3fv(uniforms.edgeColor, currentPalette.edge);
+    gl.uniform3fv(uniforms.glowColor, currentPalette.glow);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    updateAdaptiveResolution(delta, 1 / Math.max(delta, 0.0001));
+    window.requestAnimationFrame(render);
+  }
+
+  function saveCapture() {
+    const link = document.createElement("a");
+    link.download = `FEROMORPH-${formatSeed(seedA)}-${new Date()
+      .toISOString()
+      .replace(/[:.]/g, "-")}.png`;
+    link.href = canvas.toDataURL("image/png");
+    link.click();
+    stateLabel.textContent = "CAPTURED";
+    showHudTemporarily();
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      artwork.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  }
+
+  function handlePointerMove(event) {
+    pointer.targetX = (event.clientX / Math.max(1, window.innerWidth)) * 2 - 1;
+    pointer.targetY = -((event.clientY / Math.max(1, window.innerHeight)) * 2 - 1);
+  }
+
+  function handleKeyDown(event) {
