@@ -21,10 +21,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          show-progress: false
 
       - name: Download Godot 4.7.1
         run: |
-          curl --fail --location --retry 3 \
+          curl --fail --location --retry 3 --silent --show-error \
             --output godot.zip \
             https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
           unzip -q godot.zip
@@ -35,12 +37,21 @@ jobs:
           ./Godot_v4.7.1-stable_linux.x86_64 \
             --headless \
             --path native \
-            --import
+            --import \
+            > godot-import.log 2>&1
 
       - name: Parse main script
         run: |
+          set +e
           ./Godot_v4.7.1-stable_linux.x86_64 \
             --headless \
             --path native \
             --script res://scripts/main.gd \
-            --check-only
+            --check-only \
+            > godot-check.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            echo "Godot diagnostics:"
+            grep -E "SCRIPT ERROR|Parse Error|ERROR:|res://|main.gd" godot-check.log || tail -n 80 godot-check.log
+            exit "$status"
+          fi
