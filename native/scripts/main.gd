@@ -312,31 +312,31 @@ func _rebuild_sculpture() -> void:
 
 func _generate_gene(count: int) -> Array:
     var gene: Array = []
-    var vertical_bias := rng.randf_range(-0.22, 0.22)
-    var turn := rng.randf_range(-PI, PI)
+    var vertical_bias: float = rng.randf_range(-0.22, 0.22)
+    var turn: float = rng.randf_range(-PI, PI)
 
     for i in range(count):
-        var fi := float(i)
-        var core_weight := 0.18 if i < 3 else 1.0
-        var angle := turn + TAU * fi / max(1.0, float(count)) + rng.randf_range(-0.66, 0.66)
-        var radial := rng.randf_range(0.42, 1.72) * core_weight
-        var y := rng.randf_range(-1.55, 1.5) + vertical_bias
+        var fi: float = float(i)
+        var core_weight: float = 0.18 if i < 3 else 1.0
+        var angle: float = turn + TAU * fi / maxf(1.0, float(count)) + rng.randf_range(-0.66, 0.66)
+        var radial: float = rng.randf_range(0.42, 1.72) * core_weight
+        var y: float = rng.randf_range(-1.55, 1.5) + vertical_bias
         if i == 0:
             y = rng.randf_range(-0.45, 0.45)
 
-        var position := Vector3(cos(angle) * radial, y, sin(angle) * radial)
-        var size := rng.randf_range(0.48, 0.95)
-        var scale := Vector3(
+        var position: Vector3 = Vector3(cos(angle) * radial, y, sin(angle) * radial)
+        var size: float = rng.randf_range(0.48, 0.95)
+        var scale_value: Vector3 = Vector3(
             size * rng.randf_range(0.62, 1.34),
             size * rng.randf_range(0.68, 1.58),
             size * rng.randf_range(0.62, 1.34)
         )
         if mass_types[i] == 2:
-            scale *= rng.randf_range(0.65, 0.86)
+            scale_value *= rng.randf_range(0.65, 0.86)
 
         gene.append({
             "position": position,
-            "scale": scale,
+            "scale": scale_value,
             "rotation": Quaternion.from_euler(Vector3(
                 rng.randf_range(-PI, PI),
                 rng.randf_range(-PI, PI),
@@ -406,11 +406,11 @@ func _process(delta: float) -> void:
 
 func _update_materials(morph: float) -> void:
     body_material.albedo_color = palette_a["body"].lerp(palette_b["body"], morph)
-    body_material.metallic = lerp(float(palette_a["metallic"]), float(palette_b["metallic"]), morph)
-    body_material.roughness = lerp(float(palette_a["roughness"]), float(palette_b["roughness"]), morph)
+    body_material.metallic = lerpf(float(palette_a["metallic"]), float(palette_b["metallic"]), morph)
+    body_material.roughness = lerpf(float(palette_a["roughness"]), float(palette_b["roughness"]), morph)
     link_material.albedo_color = palette_a["link"].lerp(palette_b["link"], morph)
-    link_material.metallic = clamp(body_material.metallic + 0.05, 0.0, 1.0)
-    link_material.roughness = clamp(body_material.roughness + 0.08, 0.0, 1.0)
+    link_material.metallic = clampf(body_material.metallic + 0.05, 0.0, 1.0)
+    link_material.roughness = clampf(body_material.roughness + 0.08, 0.0, 1.0)
     key_light.light_color = palette_a["light"].lerp(palette_b["light"], morph)
 
 func _update_masses(morph: float, movement: float, rupture: float) -> void:
@@ -420,26 +420,26 @@ func _update_masses(morph: float, movement: float, rupture: float) -> void:
         var b: Dictionary = gene_b[i]
         var position: Vector3 = a["position"].lerp(b["position"], morph)
         var scale_value: Vector3 = a["scale"].lerp(b["scale"], morph)
-        var phase_value := lerp(float(a["phase"]), float(b["phase"]), morph)
-        var drift_value := lerp(float(a["drift"]), float(b["drift"]), morph)
+        var phase_value: float = lerpf(float(a["phase"]), float(b["phase"]), morph)
+        var drift_value: float = lerpf(float(a["drift"]), float(b["drift"]), morph)
 
-        var drift := Vector3(
+        var drift: Vector3 = Vector3(
             sin(elapsed * 0.21 + phase_value),
             cos(elapsed * 0.17 + phase_value * 1.3),
             sin(elapsed * 0.13 - phase_value * 0.7)
         ) * drift_value * movement
         position += drift
 
-        var outward := position.normalized() if position.length() > 0.01 else Vector3.UP
-        position += outward * rupture * lerp(float(a["rupture"]), float(b["rupture"]), morph)
+        var outward: Vector3 = position.normalized() if position.length() > 0.01 else Vector3.UP
+        position += outward * rupture * lerpf(float(a["rupture"]), float(b["rupture"]), morph)
 
-        var breath := 1.0 + sin(elapsed * 0.16 + phase_value) * 0.035 * movement
+        var breath: float = 1.0 + sin(elapsed * 0.16 + phase_value) * 0.035 * movement
         scale_value *= breath
 
         node.position = position
         node.scale = scale_value
         var base_rotation: Quaternion = a["rotation"].slerp(b["rotation"], morph)
-        var micro_rotation := Quaternion(Vector3.UP, sin(elapsed * 0.07 + phase_value) * 0.035 * movement)
+        var micro_rotation: Quaternion = Quaternion(Vector3.UP, sin(elapsed * 0.07 + phase_value) * 0.035 * movement)
         node.quaternion = base_rotation * micro_rotation
         current_positions[i] = position
 
@@ -459,13 +459,13 @@ func _update_links(rupture: float) -> void:
         node.visible = true
         node.position = (a + b) * 0.5
         node.quaternion = Quaternion(Vector3.UP, direction.normalized())
-        var pulse := 0.84 + sin(elapsed * 0.23 + float(data["phase"])) * 0.12
-        var thickness := float(data["thickness"]) * pulse * (1.0 - rupture * 0.34)
+        var pulse: float = 0.84 + sin(elapsed * 0.23 + float(data["phase"])) * 0.12
+        var thickness: float = float(data["thickness"]) * pulse * (1.0 - rupture * 0.34)
         node.scale = Vector3(thickness, length * 0.5, thickness)
 
 func _update_camera(_delta: float) -> void:
-    var camera_angle := elapsed * 0.026 + float(seed_value % 1000) * 0.001
-    var radius := 8.2 + sin(elapsed * 0.041) * 0.38
+    var camera_angle: float = elapsed * 0.026 + float(seed_value % 1000) * 0.001
+    var radius: float = 8.2 + sin(elapsed * 0.041) * 0.38
     camera.position = Vector3(
         sin(camera_angle) * radius,
         0.55 + sin(elapsed * 0.031 + 1.2) * 0.58,
@@ -489,18 +489,18 @@ func _update_ui(phase: float, stillness: float, rupture: float) -> void:
     elif phase > 0.82:
         state = "METAMORPHOSIS"
 
-    var fps := Engine.get_frames_per_second()
+    var fps: int = Engine.get_frames_per_second()
     meta_label.text = "SEED %s  ·  GENERATION %02d  ·  %s  ·  %d FPS" % [
         str(seed_value), generation, QUALITY_NAMES[quality_index], fps
     ]
     state_label.text = "%s  /  %s" % [state, str(palette_b.get("name", "MATTER"))]
 
 func _update_performance(delta: float) -> void:
-    var fps := Engine.get_frames_per_second()
+    var fps: int = Engine.get_frames_per_second()
     if fps > 0 and fps < 19:
         low_fps_seconds += delta
     else:
-        low_fps_seconds = max(0.0, low_fps_seconds - delta * 0.5)
+        low_fps_seconds = maxf(0.0, low_fps_seconds - delta * 0.5)
 
     if low_fps_seconds > 5.0 and quality_index > 0:
         quality_index -= 1
@@ -509,10 +509,13 @@ func _update_performance(delta: float) -> void:
         _show_status("PERFORMANCE SAFEGUARD  ·  %s" % QUALITY_NAMES[quality_index], 4.0)
 
 func _unhandled_key_input(event: InputEvent) -> void:
-    if not event.pressed or event.echo:
+    if not event is InputEventKey:
+        return
+    var key_event := event as InputEventKey
+    if not key_event.pressed or key_event.echo:
         return
 
-    match event.keycode:
+    match key_event.keycode:
         KEY_N:
             _new_genesis()
         KEY_P, KEY_SPACE:
@@ -565,10 +568,10 @@ func _toggle_fullscreen() -> void:
         DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_FULLSCREEN)
 
 func _capture_frame() -> void:
-    var image := get_viewport().get_texture().get_image()
-    var stamp := Time.get_datetime_string_from_system().replace(":", "-")
-    var path := "user://FEROMORPH_%s_%s.png" % [str(seed_value), stamp]
-    var result := image.save_png(path)
+    var image: Image = get_viewport().get_texture().get_image()
+    var stamp: String = Time.get_datetime_string_from_system().replace(":", "-")
+    var path: String = "user://FEROMORPH_%s_%s.png" % [str(seed_value), stamp]
+    var result: Error = image.save_png(path)
     if result == OK:
         _show_status("CAPTURE SAVED  ·  %s" % ProjectSettings.globalize_path(path), 5.0)
     else:
@@ -580,11 +583,11 @@ func _show_status(message: String, seconds: float) -> void:
     status_seconds = seconds
 
 func _smoothstep(edge0: float, edge1: float, value: float) -> float:
-    var x := clamp((value - edge0) / (edge1 - edge0), 0.0, 1.0)
+    var x: float = clampf((value - edge0) / (edge1 - edge0), 0.0, 1.0)
     return x * x * (3.0 - 2.0 * x)
 
 func _window(value: float, start: float, finish: float) -> float:
-    var middle := (start + finish) * 0.5
-    var up := _smoothstep(start, middle, value)
-    var down := 1.0 - _smoothstep(middle, finish, value)
-    return min(up, down)
+    var middle: float = (start + finish) * 0.5
+    var up: float = _smoothstep(start, middle, value)
+    var down: float = 1.0 - _smoothstep(middle, finish, value)
+    return minf(up, down)
