@@ -1,0 +1,210 @@
+:root {
+  color-scheme: dark;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  background: #090909;
+  color: rgba(255, 255, 255, 0.86);
+  font-synthesis: none;
+  text-rendering: geometricPrecision;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: #090909;
+}
+
+body {
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+}
+
+#artwork {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  isolation: isolate;
+  background: #090909;
+  cursor: none;
+}
+
+#artwork.ui-active,
+#artwork:has(.enter-button:not([hidden])) {
+  cursor: default;
+}
+
+#canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  background: #090909;
+}
+
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  place-content: center;
+  pointer-events: none;
+  text-align: center;
+  opacity: 1;
+  transition: opacity 3.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.intro.is-hidden {
+  opacity: 0;
+}
+
+.intro h1 {
+  margin: 0;
+  font-size: clamp(2.2rem, 7vw, 7.5rem);
+  font-weight: 300;
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.82);
+  text-shadow: 0 0 80px rgba(255, 255, 255, 0.08);
+}
+
+.intro p {
+  margin: 1.25rem 0 0;
+  font-size: clamp(0.62rem, 1vw, 0.82rem);
+  font-weight: 400;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.36);
+}
+
+.hud {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1rem, 2.5vw, 2.5rem);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 500ms ease;
+  font-size: 0.64rem;
+  letter-spacing: 0.21em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.hud.is-visible {
+  opacity: 1;
+}
+
+.hud__identity,
+.hud__meta,
+.hud__controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.hud__identity span:first-child {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 500;
+  letter-spacing: 0.3em;
+}
+
+.hud__meta {
+  position: absolute;
+  top: clamp(1rem, 2.5vw, 2.5rem);
+  right: clamp(1rem, 2.5vw, 2.5rem);
+}
+
+.hud__controls {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  color: rgba(255, 255, 255, 0.28);
+}
+
+.enter-button {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(2rem, 8vh, 6rem);
+  z-index: 5;
+  transform: translateX(-50%);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  padding: 0.78rem 1.4rem 0.72rem;
+  background: rgba(8, 8, 8, 0.25);
+  backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.64);
+  font-size: 0.65rem;
+  letter-spacing: 0.3em;
+  text-indent: 0.3em;
+  cursor: pointer;
+  transition: border-color 300ms ease, color 300ms ease, background 300ms ease,
+    opacity 900ms ease;
+}
+
+.enter-button:hover,
+.enter-button:focus-visible {
+  border-color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(20, 20, 20, 0.5);
+  outline: none;
+}
+
+.enter-button.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.error {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-content: center;
+  margin: 0;
+  padding: 2rem;
+  text-align: center;
+  background: #090909;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  line-height: 1.7;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 720px) {
+  .intro h1 {
+    letter-spacing: 0.18em;
+    text-indent: 0.18em;
+  }
+
+  .hud__meta,
+  #fps-label {
+    display: none;
+  }
+
+  .hud__controls {
+    max-width: 85%;
+    line-height: 1.8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .hud,
+  .enter-button {
+    transition-duration: 50ms;
+  }
+}
