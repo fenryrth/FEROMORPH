@@ -1,0 +1,120 @@
+
+    float sdCapsule(vec3 p, vec3 a, vec3 b, float r) {
+      vec3 pa = p - a;
+      vec3 ba = b - a;
+      float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+      return length(pa - ba * h) - r;
+    }
+
+    float sdRoundBox(vec3 p, vec3 bounds, float radius) {
+      vec3 q = abs(p) - bounds + radius;
+      return min(max(q.x, max(q.y, q.z)), 0.0) + length(max(q, 0.0)) - radius;
+    }
+
+    float smin(float a, float b, float k) {
+      float h = max(k - abs(a - b), 0.0) / k;
+      return min(a, b) - h * h * k * 0.25;
+    }
+
+    float smax(float a, float b, float k) {
+      float h = max(k - abs(a - b), 0.0) / k;
+      return max(a, b) + h * h * k * 0.25;
+    }
+
+    float seedMix(float offset) {
+      float a = hash11(u_seedA * 17.17 + offset);
+      float b = hash11(u_seedB * 17.17 + offset);
+      return mix(a, b, smoothstep(0.0, 1.0, u_morph));
+    }
+
+    vec3 nodePosition(int index, float t) {
+      float fi = float(index);
+      float a0 = seedMix(fi * 11.31 + 1.0);
+      float a1 = seedMix(fi * 17.73 + 2.0);
+      float a2 = seedMix(fi * 23.91 + 3.0);
+      float a3 = seedMix(fi * 31.07 + 4.0);
+      float a4 = seedMix(fi * 41.53 + 5.0);
+
+      float speed = mix(0.12, 0.31, a0) * mix(1.0, 0.18, u_stillness);
+      float phase = a1 * PI * 2.0;
+      float verticalBias = (a2 - 0.5) * 0.9;
+      float spread = mix(0.62, 1.38, a3);
+
+      vec3 p;
+      p.x = sin(t * speed * (1.0 + a2) + phase) * spread;
+      p.y = cos(t * speed * (0.74 + a3) - phase * 0.7) * spread * 0.82 + verticalBias;
+      p.z = sin(t * speed * (1.27 + a4) + phase * 1.61) * spread * 0.86;
+
+      float collective = sin(t * 0.065 + u_seedA * 0.13) * 0.22;
+      p.xz *= rot(collective + (a4 - 0.5) * 0.3);
+      return p;
+    }
+
+    float sculpture(vec3 p) {
+      float t = u_time;
+      float body = 100.0;
+      float blend = mix(0.24, 0.58, seedMix(91.7));
+
+      vec3 pWarp = p;
+      float slowTurn = t * 0.018 + (u_seedA + u_seedB) * 0.001;
+      pWarp.xz *= rot(slowTurn);
+      pWarp.xy *= rot(sin(t * 0.027) * 0.11);
+
+      for (int i = 0; i < 9; i++) {
+        float fi = float(i);
+        vec3 c = nodePosition(i, t);
+        float radius = mix(0.38, 0.82, seedMix(fi * 19.17 + 8.0));
+        radius *= 0.87 + 0.13 * sin(t * mix(0.17, 0.39, seedMix(fi + 52.0)) + fi);
+        float sphere = sdSphere(pWarp - c, radius);
+        body = smin(body, sphere, blend);
+      }
+
+      // Rigid armatures interrupt the soft volumes with cast, architectural planes.
+      for (int i = 0; i < 3; i++) {
+        float fi = float(i);
+        vec3 center = nodePosition(i + 2, t * 0.71) * 0.54;
+        vec3 q = pWarp - center;
+        q.xy *= rot((seedMix(fi * 13.0 + 310.0) - 0.5) * 2.3 + sin(t * 0.024 + fi) * 0.13);
+        q.xz *= rot((seedMix(fi * 17.0 + 330.0) - 0.5) * 2.1);
+        vec3 bounds = vec3(
+          mix(0.12, 0.27, seedMix(fi * 7.0 + 350.0)),
+          mix(0.54, 1.15, seedMix(fi * 9.0 + 360.0)),
+          mix(0.14, 0.34, seedMix(fi * 11.0 + 370.0))
+        );
+        float armature = sdRoundBox(q, bounds, mix(0.06, 0.17, seedMix(fi + 380.0)));
+        body = smin(body, armature, mix(0.11, 0.22, seedMix(fi + 390.0)));
+      }
+
+      // Ligaments produce brief bridges that can carry the body before it divides again.
+      for (int i = 0; i < 4; i++) {
+        vec3 a = nodePosition(i * 2, t);
+        vec3 b = nodePosition(i * 2 + 1, t);
+        float r = mix(0.12, 0.31, seedMix(float(i) * 29.0 + 71.0));
+        body = smin(body, sdCapsule(pWarp, a, b, r), blend * 0.72);
+      }
+
+      // An internal absence expands during rupture events and leaves a scar-like cavity.
+      vec3 voidCenter = vec3(
+        sin(t * 0.081 + seedMix(201.0) * 6.0),
+        cos(t * 0.067 + seedMix(202.0) * 6.0) * 0.45,
+        sin(t * 0.073 + seedMix(203.0) * 6.0)
+      ) * 0.55;
+      float voidRadius = mix(0.22, 0.54, seedMix(204.0)) + u_rupture * 0.74;
+      float cavity = sdSphere(pWarp - voidCenter, voidRadius);
+      body = smax(body, -cavity, 0.18 + 0.22 * u_rupture);
+
+      // A narrow cleft cuts across the body like a failed mould seam.
+      vec3 cleftPoint = pWarp - voidCenter * 0.55;
+      cleftPoint.xy *= rot((seedMix(421.0) - 0.5) * 2.4 + sin(t * 0.019) * 0.16);
+      cleftPoint.xz *= rot((seedMix(422.0) - 0.5) * 1.9);
+      float cleft = sdRoundBox(
+        cleftPoint,
+        vec3(0.075 + u_rupture * 0.14, 1.24, 0.58),
+        0.07
+      );
+      body = smax(body, -cleft, 0.08 + u_rupture * 0.13);
+
+      // Two smaller pores ensure the silhouette is never merely a smooth blob.
+      for (int i = 0; i < 2; i++) {
+        float fi = float(i);
+        vec3 pore = nodePosition(i + 6, t * 0.83) * 0.43;
