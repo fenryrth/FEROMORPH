@@ -1,0 +1,119 @@
+        float poreRadius = mix(0.12, 0.28, seedMix(fi * 37.0 + 240.0));
+        body = smax(body, -sdSphere(pWarp - pore, poreRadius), 0.09);
+      }
+
+      float coarse = fbm(pWarp * 1.32 + vec3(0.0, t * 0.018, 0.0));
+      float fine = noise3(pWarp * 6.2 - vec3(t * 0.025, 0.0, 0.0));
+      body += (coarse - 0.5) * 0.105 + (fine - 0.5) * 0.018;
+
+      // Soft containment: the body is encouraged toward monument-like verticality.
+      body += max(abs(p.y) - 2.35, 0.0) * 0.6;
+      return body;
+    }
+
+    vec2 mapScene(vec3 p) {
+      float objectDistance = sculpture(p);
+      float floorDistance = p.y + 2.46;
+      return objectDistance < floorDistance
+        ? vec2(objectDistance, 1.0)
+        : vec2(floorDistance, 2.0);
+    }
+
+    vec2 raymarch(vec3 ro, vec3 rd) {
+      float depth = 0.0;
+      float material = 0.0;
+
+      for (int i = 0; i < MAX_STEPS; i++) {
+        vec3 p = ro + rd * depth;
+        vec2 hit = mapScene(p);
+        material = hit.y;
+        depth += hit.x * 0.76;
+        if (abs(hit.x) < SURF_DIST || depth > MAX_DIST) break;
+      }
+
+      return vec2(depth, material);
+    }
+
+    vec3 getNormal(vec3 p) {
+      vec2 e = vec2(0.0015, 0.0);
+      float d = mapScene(p).x;
+      return normalize(vec3(
+        mapScene(p + e.xyy).x - d,
+        mapScene(p + e.yxy).x - d,
+        mapScene(p + e.yyx).x - d
+      ));
+    }
+
+    float ambientOcclusion(vec3 p, vec3 n) {
+      float occlusion = 0.0;
+      float scale = 1.0;
+      for (int i = 0; i < 5; i++) {
+        float h = 0.025 + 0.11 * float(i);
+        float d = mapScene(p + n * h).x;
+        occlusion += (h - d) * scale;
+        scale *= 0.68;
+      }
+      return saturate(1.0 - occlusion * 1.45);
+    }
+
+    float softShadow(vec3 ro, vec3 rd, float mint, float maxt, float softness) {
+      float result = 1.0;
+      float t = mint;
+      for (int i = 0; i < 42; i++) {
+        float h = mapScene(ro + rd * t).x;
+        result = min(result, softness * h / t);
+        t += clamp(h, 0.025, 0.24);
+        if (h < 0.001 || t > maxt) break;
+      }
+      return saturate(result);
+    }
+
+    float fogFactor(float distanceValue) {
+      return 1.0 - exp(-distanceValue * distanceValue * 0.012);
+    }
+
+    vec3 background(vec3 rd, vec2 uv) {
+      float horizon = smoothstep(-0.55, 0.62, rd.y);
+      vec3 low = vec3(0.006, 0.006, 0.007);
+      vec3 high = vec3(0.035, 0.036, 0.039);
+      vec3 bg = mix(low, high, horizon * 0.62);
+
+      float halo = pow(saturate(1.0 - length(uv * vec2(0.68, 1.0))), 3.6);
+      bg += u_glowColor * halo * 0.075;
+      return bg;
+    }
+
+    vec3 filmic(vec3 x) {
+      x = max(vec3(0.0), x - 0.004);
+      return (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
+    }
+
+    void main() {
+      vec2 frag = gl_FragCoord.xy;
+      vec2 uv = (frag * 2.0 - u_resolution.xy) / u_resolution.y;
+
+      float pointerYaw = u_pointer.x * 0.17;
+      float pointerPitch = u_pointer.y * 0.09;
+      float cameraAngle = u_cameraTime * 0.032 + pointerYaw + u_seedA * 0.0007;
+      float cameraRadius = 5.5 + sin(u_cameraTime * 0.023) * 0.28;
+
+      vec3 target = vec3(0.0, -0.18 + pointerPitch, 0.0);
+      vec3 ro = vec3(
+        sin(cameraAngle) * cameraRadius,
+        0.42 + sin(u_cameraTime * 0.017 + 1.4) * 0.42,
+        cos(cameraAngle) * cameraRadius
+      );
+
+      vec3 forward = normalize(target - ro);
+      vec3 right = normalize(cross(forward, vec3(0.0, 1.0, 0.0)));
+      vec3 up = cross(right, forward);
+      float lens = 1.85;
+      vec3 rd = normalize(forward * lens + right * uv.x + up * uv.y);
+
+      vec3 color = background(rd, uv);
+      vec2 hit = raymarch(ro, rd);
+
+      if (hit.x < MAX_DIST) {
+        vec3 p = ro + rd * hit.x;
+        vec3 n = getNormal(p);
+        vec3 viewDir = normalize(ro - p);
