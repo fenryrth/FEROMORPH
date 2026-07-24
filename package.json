@@ -1,0 +1,18 @@
+{
+  "name": "feromorph",
+  "version": "0.1.0",
+  "private": true,
+  "description": "An autonomous generative digital sculpture by Michael Gram.",
+  "scripts": {
+    "serve": "python3 -m http.server 8080"
+  },
+  "keywords": [
+    "generative-art",
+    "digital-sculpture",
+    "webgl",
+    "raymarching",
+    "procedural-art"
+  ],
+  "author": "Michael Gram",
+  "license": "UNLICENSED"
+}
