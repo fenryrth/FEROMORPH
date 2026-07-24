@@ -55,3 +55,14 @@ jobs:
             grep -E "SCRIPT ERROR|Parse Error|ERROR:|res://|main.gd" godot-check.log || tail -n 80 godot-check.log
             exit "$status"
           fi
+
+      - name: Upload Godot diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: godot-diagnostics
+          path: |
+            godot-check.log
+            godot-import.log
+          if-no-files-found: error
+          retention-days: 3
