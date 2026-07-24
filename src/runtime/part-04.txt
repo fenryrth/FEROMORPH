@@ -1,0 +1,120 @@
+  let hudVisible = false;
+  let manualStillness = false;
+  let pointer = { x: 0, y: 0, targetX: 0, targetY: 0 };
+  let sculptureTime = 0;
+  let cameraTime = 0;
+  let morph = 0;
+  let morphStart = performance.now() * 0.001 + randomRange(54, 84);
+  let morphDuration = randomRange(18, 30);
+  let rupture = 0;
+  let ruptureStart = performance.now() * 0.001 + randomRange(13, 28);
+  let ruptureDuration = randomRange(7, 13);
+  let ruptureActive = false;
+  let stillness = 0;
+  let stillnessTarget = 0;
+  let lastFrame = performance.now();
+  let fpsAccumulator = 0;
+  let fpsFrames = 0;
+  let fpsDisplay = 0;
+  let adaptiveScale = Math.min(window.devicePixelRatio || 1, 1.5);
+  let introTimeout;
+  let uiTimeout;
+
+  seedLabel.textContent = `SEED ${formatSeed(seedA)}`;
+
+  function randomSeed() {
+    const values = new Uint32Array(1);
+    if (window.crypto?.getRandomValues) {
+      window.crypto.getRandomValues(values);
+      return 1000 + (values[0] % 900000);
+    }
+    return 1000 + Math.floor(Math.random() * 900000);
+  }
+
+  function randomRange(min, max) {
+    return min + Math.random() * (max - min);
+  }
+
+  function formatSeed(seed) {
+    return String(Math.floor(seed)).padStart(6, "0");
+  }
+
+  function smoothstep(edge0, edge1, value) {
+    const x = Math.min(1, Math.max(0, (value - edge0) / (edge1 - edge0)));
+    return x * x * (3 - 2 * x);
+  }
+
+  function easeInOut(value) {
+    return value < 0.5
+      ? 4 * value * value * value
+      : 1 - Math.pow(-2 * value + 2, 3) / 2;
+  }
+
+  function resize() {
+    const width = Math.max(1, Math.floor(window.innerWidth * adaptiveScale));
+    const height = Math.max(1, Math.floor(window.innerHeight * adaptiveScale));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+      gl.viewport(0, 0, width, height);
+    }
+  }
+
+  function beginExperience() {
+    if (hasEntered) return;
+    hasEntered = true;
+    enterButton.classList.add("is-hidden");
+    window.setTimeout(() => {
+      enterButton.hidden = true;
+    }, 950);
+
+    introTimeout = window.setTimeout(() => {
+      intro.classList.add("is-hidden");
+    }, 2200);
+
+    showHudTemporarily(5000);
+  }
+
+  function showHudTemporarily(duration = 3200) {
+    window.clearTimeout(uiTimeout);
+    hudVisible = true;
+    hud.classList.add("is-visible");
+    artwork.classList.add("ui-active");
+    hud.setAttribute("aria-hidden", "false");
+
+    uiTimeout = window.setTimeout(() => {
+      hudVisible = false;
+      hud.classList.remove("is-visible");
+      artwork.classList.remove("ui-active");
+      hud.setAttribute("aria-hidden", "true");
+    }, duration);
+  }
+
+  function toggleHud() {
+    window.clearTimeout(uiTimeout);
+    hudVisible = !hudVisible;
+    hud.classList.toggle("is-visible", hudVisible);
+    artwork.classList.toggle("ui-active", hudVisible);
+    hud.setAttribute("aria-hidden", String(!hudVisible));
+  }
+
+  function requestGenesis() {
+    if (morph > 0.001 && morph < 0.999) return;
+    seedB = randomSeed();
+    morphStart = cameraTime + 0.35;
+    morphDuration = randomRange(12, 20);
+    stateLabel.textContent = "IMPENDING MUTATION";
+    showHudTemporarily();
+  }
+
+  function triggerRupture() {
+    ruptureActive = true;
+    ruptureStart = cameraTime;
+    ruptureDuration = randomRange(7, 13);
+    stateLabel.textContent = "RUPTURE";
+  }
+
+  function updateEvents() {
+    if (cameraTime >= morphStart) {
+      const raw = Math.min(1, Math.max(0, (cameraTime - morphStart) / morphDuration));
+      morph = easeInOut(raw);
