@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#090909" />
+    <meta
+      name="description"
+      content="FEROMORPH — an autonomous generative sculpture by Michael Gram."
+    />
+    <title>FEROMORPH — Michael Gram</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main id="artwork" aria-label="FEROMORPH generative digital sculpture">
+      <canvas id="canvas"></canvas>
+
+      <section id="intro" class="intro" aria-live="polite">
+        <h1>FEROMORPH</h1>
+        <p>an autonomous sculpture</p>
+      </section>
+
+      <section id="hud" class="hud" aria-hidden="true">
+        <div class="hud__identity">
+          <span>FEROMORPH</span>
+          <span id="state-label">GENESIS</span>
+        </div>
+        <div class="hud__meta">
+          <span id="seed-label">SEED —</span>
+          <span id="fps-label">— FPS</span>
+        </div>
+        <div class="hud__controls">
+          <span>N · NEW GENESIS</span>
+          <span>SPACE · STILLNESS</span>
+          <span>F · FULLSCREEN</span>
+          <span>S · CAPTURE</span>
+          <span>H · HIDE</span>
+        </div>
+      </section>
+
+      <button id="enter-button" class="enter-button" type="button" aria-label="Enter FEROMORPH">
+        ENTER
+      </button>
+
+      <p id="error" class="error" hidden></p>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
