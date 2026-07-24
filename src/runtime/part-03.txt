@@ -1,0 +1,120 @@
+        vec3 keyDir = normalize(vec3(-0.56, 0.73, 0.38));
+        vec3 rimDir = normalize(vec3(0.62, 0.2, -0.76));
+        float key = max(dot(n, keyDir), 0.0);
+        float rim = pow(saturate(1.0 - dot(n, viewDir)), 2.4);
+        float back = max(dot(n, rimDir), 0.0);
+        float ao = ambientOcclusion(p, n);
+        float shadow = softShadow(p + n * 0.012, keyDir, 0.03, 7.0, 18.0);
+
+        if (hit.y < 1.5) {
+          float roughPattern = fbm(p * 2.8 + u_seedA * 0.017);
+          float patina = smoothstep(0.44, 0.72, roughPattern + n.y * 0.08);
+          vec3 material = mix(u_baseColor * 0.52, u_baseColor * 1.22, patina);
+          material = mix(material, u_edgeColor, rim * 0.43);
+
+          float diffuse = 0.11 + key * shadow * 1.06 + back * 0.14;
+          vec3 halfDir = normalize(keyDir + viewDir);
+          float specularPower = mix(24.0, 84.0, patina);
+          float specular = pow(max(dot(n, halfDir), 0.0), specularPower) * shadow;
+          float cavityGlow = pow(1.0 - ao, 2.0) * (0.18 + u_rupture * 0.5);
+
+          color = material * diffuse * ao;
+          color += vec3(1.0, 0.82, 0.61) * specular * mix(0.12, 0.48, patina);
+          color += u_edgeColor * rim * (0.24 + 0.36 * back);
+          color += u_glowColor * cavityGlow;
+        } else {
+          float floorNoise = noise3(p * vec3(3.0, 0.2, 3.0));
+          vec3 floorColor = vec3(0.018, 0.018, 0.019) * (0.72 + floorNoise * 0.38);
+          float floorLight = 0.08 + key * shadow * 0.17;
+          color = floorColor * floorLight;
+
+          // A subdued contact aura makes the body feel physically present.
+          float radial = exp(-length(p.xz) * 0.72);
+          color += u_glowColor * radial * 0.018 * (1.0 - shadow);
+        }
+
+        color = mix(color, background(rd, uv), fogFactor(hit.x));
+      }
+
+      // Exhibition-grade finishing: restrained grain, vignette and a slow exposure breath.
+      float grain = hash21(frag + fract(u_cameraTime) * 791.3) - 0.5;
+      color += grain * 0.018;
+      float vignette = 1.0 - smoothstep(0.45, 1.35, length(uv * vec2(0.72, 1.0)));
+      color *= mix(0.48, 1.0, vignette);
+      color *= u_exposure * (0.97 + sin(u_cameraTime * 0.09) * 0.025);
+      color = filmic(color);
+      color = pow(color, vec3(0.95));
+
+      outColor = vec4(color, 1.0);
+    }
+  `;
+
+  const program = createProgram(gl, vertexSource, fragmentSource);
+  if (!program) return;
+
+  const positionLocation = gl.getAttribLocation(program, "a_position");
+  const buffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(
+    gl.ARRAY_BUFFER,
+    new Float32Array([-1, -1, 3, -1, -1, 3]),
+    gl.STATIC_DRAW
+  );
+
+  const vao = gl.createVertexArray();
+  gl.bindVertexArray(vao);
+  gl.enableVertexAttribArray(positionLocation);
+  gl.vertexAttribPointer(positionLocation, 2, gl.FLOAT, false, 0, 0);
+
+  const uniforms = {
+    resolution: gl.getUniformLocation(program, "u_resolution"),
+    time: gl.getUniformLocation(program, "u_time"),
+    cameraTime: gl.getUniformLocation(program, "u_cameraTime"),
+    seedA: gl.getUniformLocation(program, "u_seedA"),
+    seedB: gl.getUniformLocation(program, "u_seedB"),
+    morph: gl.getUniformLocation(program, "u_morph"),
+    rupture: gl.getUniformLocation(program, "u_rupture"),
+    stillness: gl.getUniformLocation(program, "u_stillness"),
+    exposure: gl.getUniformLocation(program, "u_exposure"),
+    pointer: gl.getUniformLocation(program, "u_pointer"),
+    baseColor: gl.getUniformLocation(program, "u_baseColor"),
+    edgeColor: gl.getUniformLocation(program, "u_edgeColor"),
+    glowColor: gl.getUniformLocation(program, "u_glowColor"),
+  };
+
+  const palettes = [
+    {
+      name: "oxidised bronze",
+      base: [0.26, 0.13, 0.075],
+      edge: [0.52, 0.34, 0.18],
+      glow: [0.055, 0.24, 0.21],
+      exposure: 1.18,
+    },
+    {
+      name: "charred iron",
+      base: [0.13, 0.14, 0.15],
+      edge: [0.58, 0.36, 0.19],
+      glow: [0.25, 0.055, 0.025],
+      exposure: 1.24,
+    },
+    {
+      name: "ashen porcelain",
+      base: [0.42, 0.39, 0.34],
+      edge: [0.62, 0.55, 0.44],
+      glow: [0.12, 0.09, 0.07],
+      exposure: 1.08,
+    },
+    {
+      name: "buried mineral",
+      base: [0.10, 0.16, 0.15],
+      edge: [0.26, 0.42, 0.34],
+      glow: [0.23, 0.12, 0.035],
+      exposure: 1.22,
+    },
+  ];
+
+  let seedA = randomSeed();
+  let seedB = randomSeed();
+  let currentPalette = palettes[Math.floor(Math.random() * palettes.length)];
+  let running = true;
+  let hasEntered = false;
