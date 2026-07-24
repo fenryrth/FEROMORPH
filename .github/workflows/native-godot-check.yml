@@ -1,0 +1,46 @@
+name: Validate FEROMORPH Native
+
+on:
+  pull_request:
+    paths:
+      - "native/**"
+      - ".github/workflows/native-godot-check.yml"
+  push:
+    branches: ["main"]
+    paths:
+      - "native/**"
+      - ".github/workflows/native-godot-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Download Godot 4.7.1
+        run: |
+          curl --fail --location --retry 3 \
+            --output godot.zip \
+            https://github.com/godotengine/godot-builds/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip
+          unzip -q godot.zip
+          chmod +x Godot_v4.7.1-stable_linux.x86_64
+
+      - name: Import project resources
+        run: |
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --import
+
+      - name: Parse main script
+        run: |
+          ./Godot_v4.7.1-stable_linux.x86_64 \
+            --headless \
+            --path native \
+            --script res://scripts/main.gd \
+            --check-only
