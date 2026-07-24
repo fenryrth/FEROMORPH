@@ -1,0 +1,87 @@
+    if (event.repeat) return;
+    switch (event.key.toLowerCase()) {
+      case "n":
+        requestGenesis();
+        break;
+      case "f":
+        toggleFullscreen();
+        break;
+      case "h":
+        toggleHud();
+        break;
+      case "s":
+        saveCapture();
+        break;
+      case " ":
+        event.preventDefault();
+        manualStillness = !manualStillness;
+        stateLabel.textContent = manualStillness ? "IMPOSED STILLNESS" : "RELEASED";
+        showHudTemporarily();
+        break;
+      case "p":
+        running = !running;
+        stateLabel.textContent = running ? "REANIMATED" : "SUSPENDED";
+        showHudTemporarily();
+        break;
+      default:
+        break;
+    }
+  }
+
+  function createShader(context, type, source) {
+    const shader = context.createShader(type);
+    context.shaderSource(shader, source);
+    context.compileShader(shader);
+
+    if (!context.getShaderParameter(shader, context.COMPILE_STATUS)) {
+      const message = context.getShaderInfoLog(shader) || "Unknown shader error";
+      context.deleteShader(shader);
+      showError(`FEROMORPH could not initialise.\n\n${message}`);
+      return null;
+    }
+    return shader;
+  }
+
+  function createProgram(context, vertex, fragment) {
+    const vertexShader = createShader(context, context.VERTEX_SHADER, vertex);
+    const fragmentShader = createShader(context, context.FRAGMENT_SHADER, fragment);
+    if (!vertexShader || !fragmentShader) return null;
+
+    const linkedProgram = context.createProgram();
+    context.attachShader(linkedProgram, vertexShader);
+    context.attachShader(linkedProgram, fragmentShader);
+    context.linkProgram(linkedProgram);
+
+    if (!context.getProgramParameter(linkedProgram, context.LINK_STATUS)) {
+      const message = context.getProgramInfoLog(linkedProgram) || "Unknown linking error";
+      showError(`FEROMORPH could not initialise.\n\n${message}`);
+      return null;
+    }
+
+    context.deleteShader(vertexShader);
+    context.deleteShader(fragmentShader);
+    return linkedProgram;
+  }
+
+  function showError(message) {
+    errorElement.hidden = false;
+    errorElement.textContent = message;
+    enterButton.hidden = true;
+  }
+
+  enterButton.addEventListener("click", beginExperience);
+  window.addEventListener("resize", resize, { passive: true });
+  window.addEventListener("pointermove", handlePointerMove, { passive: true });
+  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("pointerdown", () => {
+    if (!hasEntered) beginExperience();
+    else showHudTemporarily(2200);
+  });
+  document.addEventListener("visibilitychange", () => {
+    lastFrame = performance.now();
+  });
+
+  resize();
+  gl.clearColor(0.005, 0.005, 0.006, 1);
+  window.requestAnimationFrame(render);
+})();
